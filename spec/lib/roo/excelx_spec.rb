@@ -181,11 +181,13 @@ describe Roo::Excelx do
         book&.close
       end
 
-      it "keeps scalar helper overrides during header callbacks" do
+      it "keeps scalar helper overrides for header reads" do
         subclass = Class.new(Roo::Excelx) do
           private
 
           def safe_send(object, name, *arguments)
+            return "missing" if object.nil?
+
             value = super
             value.is_a?(String) ? "custom:#{value}" : value
           end
@@ -193,6 +195,26 @@ describe Roo::Excelx do
         book = subclass.new(path)
         expect(book.each(headers: true).to_a.last).to eq(
           "Header A1" => "custom:Data A3", "Header B1" => "custom:Data B3"
+        )
+        book.sheet_for(nil).cells.delete([2, 2])
+        expect(book.parse(headers: true)[1]).to eq(
+          "Header A1" => "custom:Data A2", "Header B1" => "missing"
+        )
+      ensure
+        book&.close
+      end
+
+      it "keeps coordinate normalization overrides when parsing headers" do
+        subclass = Class.new(Roo::Excelx) do
+          def normalize(row, column)
+            row, column = super
+            [row > 1 ? row + 1 : row, column]
+          end
+        end
+        book = subclass.new(path)
+
+        expect(book.parse(headers: true)[1]).to eq(
+          "Header A1" => "Data A3", "Header B1" => "Data B3"
         )
       ensure
         book&.close

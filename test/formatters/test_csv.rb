@@ -1,6 +1,35 @@
 require "test_helper"
 
 class TestRooFormatterCSV < Minitest::Test
+  def test_csv_constant_in_an_excelx_subclass_uses_rubys_csv_library
+    subclass = Class.new(Roo::Excelx)
+    subclass.class_eval <<~RUBY
+      def export_rows(rows)
+        CSV.generate { |csv| rows.each { |row| csv << row } }
+      end
+    RUBY
+
+    assert_equal "1,2\n", subclass.allocate.export_rows([[1, 2]])
+  end
+
+  def test_csv_keeps_coordinate_normalization_overrides
+    book = Roo::Excelx.new(File.join(TESTDIR, "header_offset.xlsx"))
+    book.define_singleton_method(:normalize) do |row, column|
+      row, column = super(row, column)
+      [row > 1 ? row + 1 : row, column]
+    end
+    cells = book.sheet_for(nil).cells
+    cells.delete([2, 2])
+    cells[[3, 10]] = cells[[3, 2]].dup
+
+    expected = "\"Header A1\",\"Header B1\"" + "," * 8 + "\n" +
+      "\"Data A3\",\"Data B3\"" + "," * 8 + "\"Data B3\"\n" +
+      "," * 9 + "\n"
+    assert_equal expected, book.to_csv
+  ensure
+    book&.close
+  end
+
   def test_csv_preserves_missing_cells_and_unordered_keys
     book = Roo::Excelx.new(File.join(TESTDIR, "header_offset.xlsx"))
     cells = book.sheet_for(nil).cells

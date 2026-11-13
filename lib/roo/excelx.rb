@@ -27,7 +27,7 @@ module Roo
     require 'roo/excelx/images'
     require "roo/excelx/csv"
 
-    include CSV
+    include SparseCSVWriter
 
     delegate [:styles, :workbook, :shared_strings, :rels_files, :sheet_files, :comments_files, :image_rels, :image_files] => :@shared
     ExceedsMaxError = Class.new(StandardError)
@@ -155,13 +155,14 @@ module Roo
         return parse_array_rows(sheet, count)
       end
       return super unless options[:headers] == true && method(:cell).owner == Roo::Excelx
+      return super unless method(:safe_send).owner == Roo::Excelx && method(:normalize).owner == Roo::Base
 
       cells = sheet_for(nil).cells
       return super unless cells.default.nil? && cells.default_proc.nil?
 
       headers = iteration_headers(options)
       last = last_row
-      fields = headers.each_with_object({}) { |(key, column), result| result[key] = column }
+      fields = headers.to_h
       rows = @header_line.upto(last).map do
         headers.each_with_object({}) { |(key, _), values| values[key] = nil }
       end
@@ -382,14 +383,6 @@ module Roo
         rows[line - 1][column - first] = cell&.value
       end
       rows.drop(1)
-    end
-
-    def iteration_headers(options)
-      clean_sheet_if_need(options)
-      search_or_set_header(options)
-      @headers || (first_column..last_column).each_with_object({}) do |column, headers|
-        headers[cell(@header_line, column)] = column
-      end
     end
 
     def clean_sheet(sheet)

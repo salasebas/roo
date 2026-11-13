@@ -4,7 +4,7 @@ require "English"
 
 module Roo
   class Excelx
-    module CSV
+    module SparseCSVWriter
       private
 
       def write_csv_content(file = nil, sheet = nil, separator = ",")
@@ -84,6 +84,7 @@ module Roo
 
       def csv_walk_compatible?(separator)
         instance_of?(Roo::Excelx) && $OUTPUT_RECORD_SEPARATOR.nil? &&
+          method(:normalize).owner == Roo::Base &&
           [String, Symbol, NilClass].include?(separator.class) &&
           (separator.to_s.ascii_only? || separator.to_s.encoding == Encoding::UTF_8) &&
           %i[cell celltype empty? sheet_for first_row last_row last_column].all? do |name|
